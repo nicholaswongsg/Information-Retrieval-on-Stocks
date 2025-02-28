@@ -13,11 +13,11 @@ reddit = praw.Reddit(
 )
 
 # Replace here with the subbreddit u doing
-SUBREDDITS = ["stockmarket", "stocks", "investing", "stocksandtrading"]
+SUBREDDITS = ["NvidiaStock"]
 POST_LIMIT = 1000
 
-POSTS_CSV = "reddit_stock_posts.csv"
-COMMENTS_CSV = "reddit_stock_comments.csv"
+POSTS_CSV = "NVIDIA_reddit_stock_posts.csv"
+COMMENTS_CSV = "NVIDIA_reddit_stock_comments.csv"
 
 # Load existing post IDs and comment IDs to avoid duplicates
 existing_post_ids = set()
