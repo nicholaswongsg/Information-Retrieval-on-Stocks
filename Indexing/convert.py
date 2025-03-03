@@ -25,8 +25,8 @@ solr_url = "http://localhost:8983/solr/reddit_core"
 solr = pysolr.Solr(solr_url, always_commit=True, timeout=10)
 
 # Load CSV files
-posts_df = pd.read_csv("/Users/nicholaswong/Desktop/Github/Information-Retrieval-on-Stocks/Crawling/reddit_stock_posts.csv")
-comments_df = pd.read_csv("/Users/nicholaswong/Desktop/Github/Information-Retrieval-on-Stocks/Crawling/reddit_stock_comments.csv")
+posts_df = pd.read_csv("../Crawling/reddit_stock_posts.csv")
+comments_df = pd.read_csv("../Crawling/reddit_stock_comments.csv")
 
 # Store initial counts before cleaning and deduplication
 initial_post_count = len(posts_df)
