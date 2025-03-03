@@ -175,7 +175,7 @@ HTML_TEMPLATE = """
             {% if wordcloud_img %}
             <div class="wordcloud-container">
                 <h3>Word Cloud Analysis</h3>
-                <p><small>Based on top 50 results, using up to 50 most frequent terms</small></p>
+                <p><small>Based on 50 most recent results, using up to 50 most frequent terms</small></p>
                 <img src="data:image/png;base64,{{ wordcloud_img }}" alt="Word Cloud" class="wordcloud-img">
             </div>
             {% endif %}
