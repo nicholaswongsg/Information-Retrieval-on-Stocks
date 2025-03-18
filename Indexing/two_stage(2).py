@@ -71,7 +71,7 @@ def initialize_vector_store():
     # Initialize embeddings
     embeddings = AzureOpenAIEmbeddings(
         azure_endpoint=os.environ['AZURE_OPENAI_ENDPOINT'],
-        api_key=os.environ['AZURE_OPENAI_APIKEY'],
+        api_key=os.environ['AZURE_OPENAI_API_KEY'],
         azure_deployment="text-embedding-ada-002",
         model='text-embedding-ada-002'
     )
@@ -98,7 +98,7 @@ def load_vector_store():
     """Load an existing vector store"""
     embeddings = AzureOpenAIEmbeddings(
         azure_endpoint=os.environ['AZURE_OPENAI_ENDPOINT'],
-        api_key=os.environ['AZURE_OPENAI_APIKEY'],
+        api_key=os.environ['AZURE_OPENAI_API_KEY'],
         azure_deployment="text-embedding-ada-002",
         model='text-embedding-ada-002'
     )
@@ -179,7 +179,7 @@ def grade_results(query, search_results):
     # Initialize the grader LLM
     grader_llm = AzureChatOpenAI(
         azure_endpoint=os.environ['AZURE_OPENAI_ENDPOINT'],
-        api_key=os.environ['AZURE_OPENAI_APIKEY'],
+        api_key=os.environ['AZURE_OPENAI_API_KEY'],
         azure_deployment="gpt-4o-mini",
         temperature=0.7
     )
@@ -229,7 +229,7 @@ def generate_answer(query, relevant_chunks):
     """Generate final answer using GPT-4o"""
     answer_llm = AzureChatOpenAI(
         azure_endpoint=os.environ['AZURE_OPENAI_ENDPOINT'],
-        api_key=os.environ['AZURE_OPENAI_APIKEY'],
+        api_key=os.environ['AZURE_OPENAI_API_KEY'],
         azure_deployment="gpt-4o",
         temperature=0.7
     )
