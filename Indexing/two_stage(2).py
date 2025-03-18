@@ -194,7 +194,7 @@ def grade_results(query, search_results):
     # Create grading prompt
     system_message = """You are evaluating search results for relevance to a user query about stocks.
                         Your task is to identify which chunks are truly relevant to answering the query.
-                        Return only the indices of relevant chunks as a JSON array of numbers."""
+                        Return only the indices of relevant chunks as comma-separated numbers."""
 
     human_message = f"""USER QUERY: {query}
 
