@@ -19,7 +19,7 @@ load_dotenv(override=True)
 lemmatizer = WordNetLemmatizer()
 
 # Define
-VECTOR_STORE_PATH = "reddit_stock_faiss_index"
+VECTOR_STORE_PATH = "Indexing/reddit_stock_faiss_index"
 
 # Define lemmatization function
 def lemmatize_text(text):
@@ -73,7 +73,7 @@ def initialize_vector_store():
         azure_endpoint=os.environ['AZURE_OPENAI_ENDPOINT'],
         api_key=os.environ['AZURE_OPENAI_API_KEY'],
         azure_deployment="text-embedding-ada-002",
-        model='text-embedding-ada-002'
+        model='text-embedding-ada-002',
     )
 
     # Process in batches to avoid memory issues
@@ -105,7 +105,7 @@ def load_vector_store():
     
     if os.path.exists(VECTOR_STORE_PATH):
         print("Loading existing vector store...")
-        return FAISS.load_local(VECTOR_STORE_PATH, embeddings), embeddings
+        return FAISS.load_local(VECTOR_STORE_PATH, embeddings, allow_dangerous_deserialization=True), embeddings
     else:
         print("No existing vector store found. Creating new one...")
         return initialize_vector_store()
@@ -139,18 +139,10 @@ def rerank_results(query, search_results, top_n=100):
             # Extract document content from page_content
             pairs.append((query, doc.page_content))
         
-        # Tokenize all pairs
-        features = tokenizer(
-            pairs,
-            padding=True,
-            truncation=True,
-            return_tensors="pt",
-            max_length=512
-        )
-        
         # Get reranker scores
         with torch.no_grad():
-            scores = model(**features).logits.flatten()
+            inputs = tokenizer(pairs, padding=True, truncation=True, return_tensors='pt', max_length=512)
+            scores = model(**inputs, return_dict=True).logits.view(-1, ).float()
         
         # Add new reranker scores to document metadata
         for i, doc in enumerate(search_results):
@@ -164,8 +156,8 @@ def rerank_results(query, search_results, top_n=100):
         
         # Print reranking information for debugging
         for i, doc in enumerate(reranked_results):
-            print(f"Rank {i+1}: Rerank score {doc.metadata['rerank_score']:.4f}, Initial score {doc.metadata['score']:.4f}")
-        
+            initial_score = doc.metadata.get('score', 0.0)  # Use get with default value
+            print(f"Rank {i+1}: Rerank score {doc.metadata['rerank_score']:.4f}")
         return reranked_results
         
     except Exception as e:
@@ -181,9 +173,11 @@ def grade_results(query, search_results):
         azure_endpoint=os.environ['AZURE_OPENAI_ENDPOINT'],
         api_key=os.environ['AZURE_OPENAI_API_KEY'],
         azure_deployment="gpt-4o-mini",
+        model="gpt-4o-mini",
+        api_version="2024-02-01",
         temperature=0.7
     )
-    
+  
     # Prepare content for grading
     chunks_with_index = []
     for i, result in enumerate(search_results):
@@ -231,6 +225,8 @@ def generate_answer(query, relevant_chunks):
         azure_endpoint=os.environ['AZURE_OPENAI_ENDPOINT'],
         api_key=os.environ['AZURE_OPENAI_API_KEY'],
         azure_deployment="gpt-4o",
+        model="gpt-4o",
+        api_version="2024-02-01",
         temperature=0.7
     )
     
@@ -287,7 +283,6 @@ def answer_stock_question(query):
     answer = generate_answer(query, relevant_chunks)
     
     return answer
-
 
 def main():
     # Check if vector store exists, if not create it
