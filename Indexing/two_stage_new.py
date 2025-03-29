@@ -19,7 +19,7 @@ load_dotenv(override=True)
 lemmatizer = WordNetLemmatizer()
 
 # Define
-VECTOR_STORE_PATH = "Indexing/reddit_stock_faiss_index"
+VECTOR_STORE_PATH = "indexing/reddit_stock_faiss_index"
 
 # Define lemmatization function
 def lemmatize_text(text):
