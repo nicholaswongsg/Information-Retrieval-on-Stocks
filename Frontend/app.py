@@ -165,7 +165,7 @@ def main():
 
         # Move to the next row
         st.session_state["current_row_index"] += 1
-        st.experimental_rerun()
+        st.st.rerun()
 
     st.markdown("---")
     st.write("Use the **Submit Label** button above to save this record and move on to the next.")
