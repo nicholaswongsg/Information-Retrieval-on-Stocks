@@ -57,7 +57,7 @@ def main():
     st.title("NER Text Sentiment Labeling")
 
     # Path to your main CSV file
-    csv_path = "../Classification/NER_with_sentiment.csv"
+    csv_path = "Classification/NER_with_sentiment.csv"
     if not os.path.exists(csv_path):
         st.error(f"CSV file not found at {csv_path}. Please check the path.")
         return
@@ -70,7 +70,7 @@ def main():
         st.stop()
 
     # Define the path to the labeller's ID list
-    labeller_txt_path = f"../Classification/{labeller_choice}.txt"
+    labeller_txt_path = f"Classification/{labeller_choice}.txt"
     if not os.path.exists(labeller_txt_path):
         st.error(f"Text file not found at {labeller_txt_path} for '{labeller_choice}'.")
         st.stop()
@@ -165,7 +165,7 @@ def main():
 
         # Move to the next row
         st.session_state["current_row_index"] += 1
-        st.st.rerun()
+        st.rerun()
 
     st.markdown("---")
     st.write("Use the **Submit Label** button above to save this record and move on to the next.")
