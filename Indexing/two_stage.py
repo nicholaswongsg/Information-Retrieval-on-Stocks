@@ -301,10 +301,6 @@ def answer_stock_question(query):
     return answer,relevant_chunks
 
 def main(query):
-    # Check if vector store exists, if not create it
-    if not os.path.exists(VECTOR_STORE_PATH):
-        initialize_vector_store()
-
     query = query
 
     print("\nSearching for relevant information...")

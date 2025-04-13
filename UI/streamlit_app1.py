@@ -167,6 +167,8 @@ with tab2:
 
     if two_stage_query:
         st.write("Processing your query using the two-stage process...")
-        answer = answer_stock_question(two_stage_query)
+        answer,relevant_chunks = answer_stock_question(two_stage_query)
         st.subheader("Answer:")
         st.write(answer)
+        st.subheader("Answer:")
+        st.write(relevant_chunks)
