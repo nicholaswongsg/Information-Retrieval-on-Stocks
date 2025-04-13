@@ -14,85 +14,10 @@ import nltk
 from nltk.corpus import stopwords
 import json
 import altair as alt
-from spellchecker import SpellChecker
 
 # Add the parent directory to the Python path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from Indexing.two_stage import answer_stock_question  # Import the function from two_stage.py
-
-SYNONYMS = {
-    "appl": "AAPL",
-    "appin": "AAPL",
-    "aplin": "AAPL",
-    "appln": "AAPL",
-    "aapl": "AAPL",
-
-    "nvda": "NVDA",
-    "nvida": "NVDA",
-    "nvid": "NVDA",
-
-    "amzn": "AMZN",
-    "amazon": "AMZN",
-
-    "goog": "GOOGL",
-    "googl": "GOOGL",
-    "google": "GOOGL",
-
-    "meta": "META",
-    "fb": "META",
-
-    "msft": "MSFT",
-    "microsoft": "MSFT",
-
-    "tsla": "TSLA",
-    "tesla": "TSLA",
-
-    "nflx": "NFLX",
-    "netflix": "NFLX",
-}
-
-def load_domain_dictionary(csv_file_path, text_column='ner_text_cleaned'):
-    df = pd.read_csv(csv_file_path)
-    texts = df[text_column].dropna()
-
-    all_words = []
-    for line in texts:
-        line_clean = re.sub(r'[^\w\s]', '', line.lower())
-        words = line_clean.split()
-        all_words.extend(words)
-
-    return all_words
-
-@st.cache_resource
-def build_spellchecker(csv_file_path):
-    spell = SpellChecker(distance=3)
-    domain_words = load_domain_dictionary(csv_file_path)
-    spell.word_frequency.load_words(domain_words)
-
-    stock_names = ["apple", "tesla", "nvidia", "amazon", "google", "meta", "microsoft"]
-    for name in stock_names:
-        spell.word_frequency.add(name, 1000000)
-
-    return spell
-
-def correct_query(spell, user_query):
-    query_clean = re.sub(r'[^\w\s]', '', user_query.lower())
-    query_words = query_clean.split()
-
-    corrected_words = []
-    for w in query_words:
-        if w in SYNONYMS:
-            corrected_words.append(SYNONYMS[w])
-        elif w in spell:
-            corrected_words.append(w)
-        else:
-            correction = spell.correction(w)
-            corrected_words.append(correction if correction else w)
-
-    return " ".join(corrected_words)
-
-NER_CSV_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "Classification", "NER_with_sentiment.csv"))
-spell = build_spellchecker(NER_CSV_PATH)
 
 # Ensure stopwords are downloaded
 try:
@@ -127,11 +52,8 @@ with tab1:
     custom_query = st.text_input("Example: What is the sentiment of Apple?", key="custom_query_csv")
 
     if custom_query:
-        corrected_query = correct_query(spell, custom_query)
-        if corrected_query.lower() != custom_query.lower():
-            st.caption(f"🔧 Auto-corrected to: _{corrected_query}_")
-
-        cleaned = re.sub(r'[^\w\s]', '', corrected_query.lower())
+        # Extract stock/entity from query
+        cleaned = re.sub(r'[^\w\s]', '', custom_query.lower())
         tokens = cleaned.split()
         ignore_words = {"what", "is", "the", "of", "sentiment", "tell", "me", "about"}
         keywords = [w for w in tokens if w not in ignore_words]
@@ -233,73 +155,6 @@ with tab1:
                 ).properties(height=300)
 
                 st.altair_chart(vader_chart, use_container_width=True)
-            
-            # === Smoothed FinBERT Sentiment Score Over Time (LOESS) ===
-            st.subheader("📈 Smoothed FinBERT Sentiment Score Over Time")
-
-            if 'created_utc' in df.columns and 'finbert_score' in result_df.columns:
-                # ✅ Convert created_utc from UNIX timestamp to datetime
-                df['created_utc'] = pd.to_datetime(df['created_utc'], unit='s', errors='coerce')
-
-                # Combine datetime and scores
-                time_df = pd.concat([
-                    df['created_utc'].reset_index(drop=True),
-                    result_df['finbert_score'].reset_index(drop=True)
-                ], axis=1).dropna()
-
-                # Floor to daily granularity
-                time_df['date'] = time_df['created_utc'].dt.floor('D')
-
-                # Group by date and compute average score
-                agg_df = time_df.groupby('date')['finbert_score'].mean().reset_index()
-
-                # Plot smoothed LOESS chart
-                chart = alt.Chart(agg_df).transform_loess(
-                    'date', 'finbert_score', bandwidth=0.4
-                ).mark_line(color='deepskyblue').encode(
-                    x=alt.X('date:T', title='Date'),
-                    y=alt.Y('finbert_score:Q', title='Smoothed Sentiment Score'),
-                    tooltip=['date:T', 'finbert_score:Q']
-                ).properties(height=300).interactive()
-
-                st.altair_chart(chart, use_container_width=True)
-
-            else:
-                st.info("Date or sentiment score data is missing.")
-            # === Smoothed VADER Sentiment Score Over Time (LOESS) ===
-            st.subheader("📉 Smoothed VADER Sentiment Score Over Time")
-
-            if 'created_utc' in df.columns and 'vader_score' in result_df.columns:
-                # Convert created_utc to datetime
-                df['created_utc'] = pd.to_datetime(df['created_utc'], unit='s', errors='coerce')
-
-                # Combine datetime and VADER scores
-                time_df = pd.concat([
-                    df['created_utc'].reset_index(drop=True),
-                    result_df['vader_score'].reset_index(drop=True)
-                ], axis=1).dropna()
-
-                # Floor to daily granularity
-                time_df['date'] = time_df['created_utc'].dt.floor('D')
-
-                # Aggregate by date
-                agg_df = time_df.groupby('date')['vader_score'].mean().reset_index()
-
-                # Plot LOESS chart
-                chart = alt.Chart(agg_df).transform_loess(
-                    'date', 'vader_score', bandwidth=0.4
-                ).mark_line(color='orange').encode(
-                    x=alt.X('date:T', title='Date'),
-                    y=alt.Y('vader_score:Q', title='Smoothed Sentiment Score'),
-                    tooltip=['date:T', 'vader_score:Q']
-                ).properties(height=300).interactive()
-
-                st.altair_chart(chart, use_container_width=True)
-
-            else:
-                st.info("Date or VADER sentiment score data is missing.")
-
-            
         else:
             st.warning("Could not extract any stock-related keyword from your question.")
             
