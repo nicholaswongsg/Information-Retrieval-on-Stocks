@@ -213,10 +213,7 @@ def grade_results(query, search_results):
         indices_text = response.content.strip()
         relevant_indices = [int(idx.strip()) for idx in indices_text.split(',') if idx.strip().isdigit()]
         relevant_chunks = [search_results[i].page_content for i in relevant_indices if i < len(search_results)]
-        # Print the final dataset
-        print("\nFINAL DATASET:")
-        for i, chunk in enumerate(relevant_chunks):
-            print(f"Chunk {i+1}:\n{chunk}\n---")
+
         return relevant_chunks
     except:
         # Fallback if parsing fails
@@ -301,25 +298,19 @@ def answer_stock_question(query):
     # Generate final answer
     answer = generate_answer(query, relevant_chunks)
     
-    return answer
+    return answer,relevant_chunks
 
-def main():
+def main(query):
     # Check if vector store exists, if not create it
     if not os.path.exists(VECTOR_STORE_PATH):
         initialize_vector_store()
-    
-    print("Type 'exit' to quit.")
-    
-    while True:
-        query = input("\nAsk a question about stocks (based on Reddit opinions): ")
-        
-        if query.lower() in ['exit']:
-            break
-            
-        print("\nSearching for relevant information...")
-        answer = answer_stock_question(query)
-        print("\nAnswer:")
-        print(answer)
+
+    query = query
+
+    print("\nSearching for relevant information...")
+    answer,relevant_chunks = answer_stock_question(query)
+
+    return answer,relevant_chunks
 
 if __name__ == "__main__":
     main()
