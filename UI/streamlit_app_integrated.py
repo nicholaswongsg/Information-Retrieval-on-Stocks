@@ -82,12 +82,7 @@ with tab2:
                 st.write(f"🔍 Found {len(result_documents)} matching documents")
                 
                 if not result_documents.empty:
-                    # Display table with limited columns for better readability
-                    if 'title' in result_documents.columns and 'date' in result_documents.columns:
-                        display_df = result_documents[['title', 'date']].copy()
-                        st.dataframe(display_df)
-                    else:
-                        st.dataframe(result_documents)
+                    st.dataframe(result_documents)
 
                     # Word cloud from results
                     st.subheader("🌥 Word Cloud from Search Results")
