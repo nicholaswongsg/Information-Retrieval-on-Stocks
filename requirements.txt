@@ -1,7 +1,7 @@
 certifi==2025.1.31
 charset-normalizer==3.4.1
 idna==3.10
-numpy==2.2.3
+numpy
 pandas==2.2.3
 pip==24.0
 praw==7.8.1
@@ -18,3 +18,11 @@ update-checker==0.18.0
 urllib3==2.3.0
 websocket-client==1.8.0
 flask
+streamlit
+faiss-cpu
+matplotlib
+altair
+nltk
+wordcloud
+tqdm
+pickle

@@ -20,6 +20,7 @@ lemmatizer = WordNetLemmatizer()
 
 # Define
 VECTOR_STORE_PATH = "reddit_stock_faiss_index"
+data_path = os.path.join(os.path.dirname(__file__), '..', 'PreProcessing', 'combined_reddit_stock_data.csv')
 
 # Define lemmatization function
 def lemmatize_text(text):
@@ -30,11 +31,10 @@ def lemmatize_text(text):
     lemmatized_tokens = [lemmatizer.lemmatize(token.lower()) for token in tokens]
     return ' '.join(lemmatized_tokens)
 
-def initialize_vector_store():
+def initialize_vector_store(data_path):
     """Process the dataset and create a vector store"""
     # Load and clean the dataset
     print("Loading and cleaning dataset...")
-    data_path = os.path.join(os.path.dirname(__file__), '..', 'PreProcessing', 'combined_reddit_stock_data.csv')
     df = pd.read_csv(data_path)
     df = df[['title', 'selftext', 'text', 'post_id','id']]
 
@@ -94,7 +94,7 @@ def initialize_vector_store():
     vector_store.save_local(VECTOR_STORE_PATH)
     return vector_store, embeddings
 
-def load_vector_store():
+def load_vector_store(data_path):
     """Load an existing vector store"""
     embeddings = AzureOpenAIEmbeddings(
         azure_endpoint=os.environ['AZURE_OPENAI_ENDPOINT'],
@@ -108,7 +108,7 @@ def load_vector_store():
         return FAISS.load_local(VECTOR_STORE_PATH, embeddings, allow_dangerous_deserialization=True), embeddings
     else:
         print("No existing vector store found. Creating new one...")
-        return initialize_vector_store()
+        return initialize_vector_store(data_path)
 
 def process_query(query, vector_store):
     """Clean query and perform similarity search"""
@@ -273,9 +273,9 @@ def generate_answer(query, relevant_chunks):
     
     return response.content
 
-def answer_stock_question(query):
+def answer_stock_question(data_path,query):
     # Load vector store
-    vector_store, embeddings = load_vector_store()
+    vector_store, embeddings = load_vector_store(data_path)
     
     # Process query and get search results
     search_results = process_query(query, vector_store)
@@ -304,7 +304,7 @@ def main(query):
     query = query
 
     print("\nSearching for relevant information...")
-    answer,relevant_chunks = answer_stock_question(query)
+    answer,relevant_chunks = answer_stock_question(data_path,query)
 
     return answer,relevant_chunks
 
