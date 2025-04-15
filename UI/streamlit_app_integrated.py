@@ -66,8 +66,8 @@ with tab1:
 
 # === Tab 2: Inverted Index Sentiment Lookup ===
 with tab2:
-    st.header("Ask a Question About Stock Sentiment")
-    custom_query = st.text_input("Example: What is the sentiment of Apple?", key="custom_query_csv")
+    st.header("Enter a company name or stock topic")
+    custom_query = st.text_input("Example: Apple Stocks, Tesla earnings", key="custom_query_csv")
 
     # Add a search button
     search_button = st.button("Search")
