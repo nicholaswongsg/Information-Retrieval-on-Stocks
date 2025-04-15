@@ -11,6 +11,7 @@ from collections import Counter
 import nltk
 from nltk.corpus import stopwords
 import altair as alt
+from datetime import datetime, timedelta
 
 # Add the parent directory to the Python path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -30,7 +31,7 @@ st.set_page_config(
 st.title("📈 Stock Sentiment Analysis")
 
 # === Tabs ===
-tab1, tab2,tab3 = st.tabs(["About","Search & Analysis","Retrieval-Augmented Generation"])
+tab1, tab2,tab3,tab4 = st.tabs(["About","Inverted Index","Retrieval-Augmented Generation","Solr"])
 
 
 # === Tab 1: About ===
@@ -65,6 +66,52 @@ with tab1:
 # === Tab 2: Inverted Index Sentiment Lookup ===
 with tab2:
     st.header("Enter a company name or stock topic")
+    # Create filter section at the top
+    with st.container():      
+        # Create two columns for filters
+        col1, col2 = st.columns(2)
+        
+        # Time filter in first column
+        with col1:
+            st.markdown("**Time Range**")
+            
+            # Define the min and max dates from your data
+            min_date_utc = 1608636755
+            max_date_utc = 1740806007 
+            
+            # Convert UTC timestamps to datetime for display
+            min_date = datetime.fromtimestamp(min_date_utc)
+            max_date = datetime.fromtimestamp(max_date_utc)
+            
+            # Create date input widgets in a row
+            date_col1, date_col2 = st.columns(2)
+            with date_col1:
+                start_date = st.date_input("Start Date", min_date, min_value=min_date, max_value=max_date)
+            with date_col2:
+                end_date = st.date_input("End Date", max_date, min_value=min_date, max_value=max_date)
+            
+            # Convert selected dates to UTC timestamps for filtering
+            start_datetime = datetime.combine(start_date, datetime.min.time())
+            end_datetime = datetime.combine(end_date, datetime.max.time())
+            
+            start_utc = int(start_datetime.timestamp())
+            end_utc = int(end_datetime.timestamp())
+        
+        # Subreddit filter in second column
+        with col2:
+            st.markdown("**Subreddit (Choose none for all subreddits)**")
+            
+            # List of available subreddits as specified
+            available_subreddits = ["applestocks", "microsoft", "NVDA_Stock", 
+                                    "wallstreetbets", "stockmarket", "stocks"]
+            
+            # Create multiselect widget for subreddits
+            selected_subreddits = st.multiselect(
+                "Select Subreddits",
+                options=available_subreddits,
+                default=[]  # Default selection
+            )
+        
     custom_query = st.text_input("Example: Apple Stocks, Tesla earnings", key="custom_query_csv")
 
     # Add a search button
@@ -74,8 +121,18 @@ with tab2:
         with st.spinner("Searching documents..."):
             try:
                 # Call the search_index function from inverted_index_edited.py
-                stopwords_list, result_documents = search_index(data_path, custom_query)
-                
+                stopwords_list, searched_docs = search_index(data_path, custom_query)
+
+                #1. Filter by time
+                result_documents = searched_docs[(searched_docs['created_utc'] >= start_utc) & (searched_docs['created_utc'] <= end_utc)]
+
+                # 2. Filter by selected subreddits if any are selected
+                if selected_subreddits:
+                    result_documents = result_documents[result_documents['subreddit'].isin(selected_subreddits)]
+                else:
+                    # If no subreddits are selected, keep all subreddits
+                    pass
+
                 # Display results
                 st.write(f"🔍 Found {len(result_documents)} matching documents")
                 
@@ -270,7 +327,7 @@ with tab2:
             except Exception as e:
                 st.error(f"Error searching documents: {str(e)}")
 
-# === Tab 3: Two-Stage Process ===
+# === Tab 3: RAG Sentiment Lookuk ===
 with tab3:
     st.header("Ask a Question")
     two_stage_query = st.text_input("Example: What is the sentiment of Tesla?", key="two_stage_query")
