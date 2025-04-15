@@ -68,7 +68,7 @@ with tab2:
     custom_query = st.text_input("Example: Apple Stocks, Tesla earnings", key="custom_query_csv")
 
     # Add a search button
-    search_button = st.button("Search")
+    search_button = st.button("Search",key="search1")
 
     if custom_query and search_button:
         with st.spinner("Searching documents..."):
@@ -272,10 +272,13 @@ with tab2:
 
 # === Tab 3: Two-Stage Process ===
 with tab3:
-    st.header("Ask a Question (Two-Stage Process)")
+    st.header("Ask a Question")
     two_stage_query = st.text_input("Example: What is the sentiment of Tesla?", key="two_stage_query")
 
-    if two_stage_query:
+    # Add a search button
+    search_button2 = st.button("Search",key="search2")
+
+    if search_button2 and two_stage_query:
         st.write("Processing your query using the two-stage process...")
         answer,relevant_chunks = answer_stock_question(data_path,two_stage_query)
         st.subheader("Answer:")
