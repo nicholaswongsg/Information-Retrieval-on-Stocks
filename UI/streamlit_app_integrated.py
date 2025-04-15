@@ -128,6 +128,9 @@ with tab2:
     if custom_query and search_button:
         with st.spinner("Searching documents..."):
             try:
+                # Start timing
+                start_time = datetime.now()
+
                 # Call the search_index function from inverted_index_edited.py
                 stopwords_list, searched_docs = search_index(data_path, custom_query)
 
@@ -140,8 +143,12 @@ with tab2:
                 else:
                     # If no subreddits are selected, keep all subreddits
                     pass
-
+                end_time = datetime.now()
+                elapsed_time = end_time - start_time
+                elapsed_ms = elapsed_time.total_seconds() * 1000
+                
                 # Display results
+                st.info(f"⏱️ Query processed in {elapsed_ms:.2f} ms ({elapsed_time.total_seconds():.2f} seconds)")
                 st.write(f"🔍 Found {len(result_documents)} matching documents")
                 
                 if not result_documents.empty:
@@ -339,13 +346,21 @@ with tab2:
 with tab3:
     st.header("Ask a Question")
     two_stage_query = st.text_input("Example: What is the sentiment of Tesla?", key="two_stage_query")
-
+    
     # Add a search button
     search_button2 = st.button("Search",key="search2")
 
     if search_button2 and two_stage_query:
+        start_time = datetime.now()
         st.write("Processing your query using the two-stage process...")
         answer,relevant_chunks = answer_stock_question(data_path,two_stage_query)
+        
+        end_time = datetime.now()
+        elapsed_time = end_time - start_time
+        elapsed_ms = elapsed_time.total_seconds() * 1000
+            
+        # Display timing information
+        st.info(f"⏱️ Query processed in {elapsed_ms:.2f} ms ({elapsed_time.total_seconds():.2f} seconds)")
         st.subheader("Answer:")
         st.write(answer)
         st.subheader("Relevant Chunks:")

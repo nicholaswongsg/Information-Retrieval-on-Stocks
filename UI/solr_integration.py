@@ -179,6 +179,7 @@ def render_solr_tab():
     if query and search_button:
         with st.spinner("Searching..."):
             try:
+                start_time = datetime.now()
                 # Execute Solr search
                 results = search_solr(
                     query, 
@@ -188,6 +189,12 @@ def render_solr_tab():
                 )
                 
                 # Display results
+                end_time = datetime.now()
+                elapsed_time = end_time - start_time
+                elapsed_ms = elapsed_time.total_seconds() * 1000
+                
+                # Display timing information
+                st.info(f"⏱️ Query processed in {elapsed_ms:.2f} ms ({elapsed_time.total_seconds():.2f} seconds)")
                 entity_type = "entity" if 'ner_text_cleaned' in results.columns else "term"
                 st.write(f"🔍 Found {len(results)} matching documents with {entity_type} '{query}'")
                 
