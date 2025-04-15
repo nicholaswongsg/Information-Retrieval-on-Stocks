@@ -20,7 +20,7 @@ lemmatizer = WordNetLemmatizer()
 
 # Define
 VECTOR_STORE_PATH = "reddit_stock_faiss_index"
-data_path = os.path.join(os.path.dirname(__file__), '..', 'PreProcessing', 'combined_reddit_stock_data.csv')
+data_path = os.path.join(os.path.dirname(__file__), '..', 'Classification', 'NER_with_ensemble_sentiment.csv')
 
 # Define lemmatization function
 def lemmatize_text(text):
