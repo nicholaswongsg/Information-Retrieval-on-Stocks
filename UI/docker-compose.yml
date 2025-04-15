@@ -1,0 +1,57 @@
+version: '3'
+
+services:
+  solr:
+    image: solr:8.11.2
+    ports:
+      - "8983:8983"
+    volumes:
+      - solr_data:/var/solr
+    command:
+      - solr-precreate
+      - stock_sentiment
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8983/solr/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  solr_schema_setup:
+    build: 
+      context: ../
+      dockerfile: UI/Dockerfile
+    volumes:
+      - ./setup_solr_schema.sh:/app/setup_solr_schema.sh
+      - ../Classification/NER_with_ensemble_sentiment.csv:/app/Classification/NER_with_ensemble_sentiment.csv
+    command: >
+      bash -c "
+        chmod +x /app/setup_solr_schema.sh && 
+        sleep 15 && 
+        /app/setup_solr_schema.sh &&
+        sleep 5 &&
+        /opt/solr/bin/post -c stock_sentiment -f csv -commit yes /app/Classification/NER_with_ensemble_sentiment.csv
+      "
+    depends_on:
+      - solr
+
+  streamlit:
+    build: 
+      context: ../
+      dockerfile: UI/Dockerfile
+    ports:
+      - "8501:8501"
+    volumes:
+      - ../:/app
+    environment:
+      - PYTHONPATH=/app
+    command: >
+      bash -c "
+        cd /app/UI && 
+        streamlit run streamlit_app_integrated.py --no-watchdog --server.address=0.0.0.0 --server.port=8501
+      "
+    depends_on:
+      - solr
+      - solr_schema_setup
+
+volumes:
+  solr_data: 

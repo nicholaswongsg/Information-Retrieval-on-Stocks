@@ -13,6 +13,14 @@ from nltk.corpus import stopwords
 import altair as alt
 from datetime import datetime, timedelta
 
+# Import Solr integration module
+try:
+    from solr_integration import render_solr_tab
+except ImportError:
+    # Local import when running in the same directory
+    sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__))))
+    from solr_integration import render_solr_tab
+
 # Add the parent directory to the Python path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from Indexing.inverted_index_edited import search_index
@@ -31,7 +39,7 @@ st.set_page_config(
 st.title("📈 Stock Sentiment Analysis")
 
 # === Tabs ===
-tab1, tab2,tab3,tab4 = st.tabs(["About","Inverted Index","Retrieval-Augmented Generation","Solr"])
+tab1, tab2, tab3, tab4 = st.tabs(["About", "Inverted Index", "Retrieval-Augmented Generation", "Solar Search"])
 
 
 # === Tab 1: About ===
@@ -342,3 +350,12 @@ with tab3:
         st.write(answer)
         st.subheader("Relevant Chunks:")
         st.write(relevant_chunks)
+
+# === Tab 4: Solr Search ===
+with tab4:
+    # Call the Solr integration module to render this tab
+    try:
+        render_solr_tab()
+    except Exception as e:
+        st.error(f"Error loading Solr integration: {str(e)}")
+        st.info("Please make sure Solr is running and accessible. You can start it using Docker with the provided setup files.")
