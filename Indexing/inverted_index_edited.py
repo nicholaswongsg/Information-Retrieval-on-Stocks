@@ -11,7 +11,7 @@ import regex as re
 
 lemmatizer = WordNetLemmatizer()
 # Data path can be changed
-data_path = "Classification/NER_with_sentiment.csv"
+data_path = "Classification/NER_with_ensemble_sentiment.csv"
 index_path = os.path.join(os.path.dirname(__file__), 'positional_index.pkl')
 stopwords_path = os.path.join(os.path.dirname(__file__), 'stopwords.pkl')
 df_path = os.path.join(os.path.dirname(__file__), 'dataframe.pkl')

@@ -60,8 +60,6 @@ with tab1:
     - r/wallstreetbets: https://www.reddit.com/r/wallstreetbets
     - r/stockmarket: https://www.reddit.com/r/stockmarket
     - r/stocks: https://www.reddit.com/r/stocks
-    - r/investing: https://www.reddit.com/r/investing
-    - r/stocksandtrading: https://www.reddit.com/r/stocksandtrading
     """)
 
 # === Tab 2: Inverted Index Sentiment Lookup ===
@@ -124,58 +122,56 @@ with tab2:
                     st.subheader("📊 Aggregated Sentiment Overview")
 
                     sentiment_order = [
-                        "Strongly Negative",
-                        "Slightly Negative",
-                        "Neutral",
-                        "Slightly Positive",
-                        "Strongly Positive"
+                        "strongly negative",
+                        "slightly negative",
+                        "neutral",
+                        "slightly positive",
+                        "strongly positive"
                     ]
 
                     # Check if the required columns exist in the dataframe
-                    if 'finbert_label' in result_documents.columns and 'vader_label' in result_documents.columns:
-                        col1, col2 = st.columns(2)
-
-                        with col1:
-                            st.markdown("**FinBERT Sentiment Distribution**")
-                            finbert_counts = result_documents['finbert_label'].value_counts().reindex(sentiment_order).fillna(0).reset_index()
-                            finbert_counts.columns = ['Sentiment', 'Count']
-
-                            finbert_chart = alt.Chart(finbert_counts).mark_bar(color='lightblue').encode(
-                                x=alt.X('Sentiment', sort=sentiment_order),
-                                y='Count'
-                            ).properties(height=300)
-
-                            st.altair_chart(finbert_chart, use_container_width=True)
-
-                        with col2:
-                            st.markdown("**VADER Sentiment Distribution**")
-                            vader_counts = result_documents['vader_label'].value_counts().reindex(sentiment_order).fillna(0).reset_index()
-                            vader_counts.columns = ['Sentiment', 'Count']
-
-                            vader_chart = alt.Chart(vader_counts).mark_bar(color='lightblue').encode(
-                                x=alt.X('Sentiment', sort=sentiment_order),
-                                y='Count'
-                            ).properties(height=300)
-
-                            st.altair_chart(vader_chart, use_container_width=True)
+                    if 'primary_sentiment' in result_documents.columns:
+                        # Create visualization for primary sentiment
+                        st.markdown("**Primary Sentiment Distribution**")
+                        primary_counts = result_documents['primary_sentiment'].value_counts().reindex(sentiment_order).fillna(0).reset_index()
+                        primary_counts.columns = ['Sentiment', 'Count']
+                        
+                        primary_chart = alt.Chart(primary_counts).mark_bar(color='lightblue').encode(
+                            x=alt.X('Sentiment', sort=sentiment_order),
+                            y='Count'
+                        ).properties(height=300)
+                        
+                        st.altair_chart(primary_chart, use_container_width=True)
+                        
+                        # Score distribution as well
+                        if 'primary_score' in result_documents.columns:
+                            st.markdown("**Sentiment Score Distribution**")
                             
-                        # Add a time-based analysis if date column exists
-                        if 'date' in result_documents.columns:
+                            # Create a histogram of sentiment scores
+                            score_hist = alt.Chart(result_documents).mark_bar().encode(
+                                x=alt.X('primary_score:Q', bin=alt.Bin(maxbins=20), title='Sentiment Score'),
+                                y='count()'
+                            ).properties(height=300)
+                            
+                            st.altair_chart(score_hist, use_container_width=True)
+                        
+                        # Add a time-based analysis
+                        if 'created_utc' in result_documents.columns:
                             st.subheader("📅 Sentiment Over Time")
                             try:
-                                # Convert date to datetime if it's not already
-                                if not pd.api.types.is_datetime64_any_dtype(result_documents['date']):
-                                    result_documents['date'] = pd.to_datetime(result_documents['date'])
+                                # Convert timestamp to datetime if it's not already
+                                if not pd.api.types.is_datetime64_any_dtype(result_documents['created_utc']):
+                                    result_documents['date'] = pd.to_datetime(result_documents['created_utc'], unit='s')
                                 
-                                # Group by date and count sentiments
-                                time_data = result_documents.groupby([pd.Grouper(key='date', freq='D'), 'finbert_label']).size().reset_index(name='count')
+                                # Group by date and sentiment
+                                time_data = result_documents.groupby([pd.Grouper(key='date', freq='D'), 'primary_sentiment']).size().reset_index(name='count')
                                 
                                 # Create time series chart
                                 time_chart = alt.Chart(time_data).mark_line().encode(
                                     x='date:T',
                                     y='count:Q',
-                                    color='finbert_label:N',
-                                    tooltip=['date', 'finbert_label', 'count']
+                                    color='primary_sentiment:N',
+                                    tooltip=['date', 'primary_sentiment', 'count']
                                 ).properties(
                                     width=700,
                                     height=400
@@ -184,8 +180,91 @@ with tab2:
                                 st.altair_chart(time_chart, use_container_width=True)
                             except Exception as e:
                                 st.warning(f"Could not create time series chart: {str(e)}")
-                    else:
-                        st.warning("Sentiment label columns not found in the result data.")
+                            
+                            # Parse the JSON in ner_entity_sentiments to extract FinBERT and VADER sentiments
+                            if 'ner_entity_sentiments' in result_documents.columns:
+                                st.subheader("**Model Specific Sentiment Analysis**")
+                                
+                                finbert_sentiments = []
+                                vader_sentiments = []
+                                finbert_scores = []
+                                vader_scores = []
+                                
+                                for json_str in result_documents['ner_entity_sentiments']:
+                                    try:
+                                        import json
+                                        data = json.loads(json_str.replace("'", '"'))
+                                        
+                                        # Extract first ticker's sentiment (simplified)
+                                        for ticker, analyses in data.items():
+                                            if 'finbert' in analyses:
+                                                finbert_sentiments.append(analyses['finbert']['label'].lower())
+                                                finbert_scores.append(analyses['finbert']['net_score'])
+                                            if 'vader' in analyses:
+                                                vader_sentiments.append(analyses['vader']['label'].lower())
+                                                vader_scores.append(analyses['vader']['compound'])  # VADER uses 'compound' instead of 'net_score'
+                                            break  # Just take the first ticker for simplicity
+                                    except:
+                                        continue
+                                
+                                # Create DataFrames for visualization
+                                if finbert_sentiments:
+                                    # Create two columns for sentiment distribution and score histogram
+                                    col1, col2 = st.columns(2)
+                                    
+                                    with col1:
+                                        finbert_df = pd.DataFrame({'Sentiment': finbert_sentiments})
+                                        finbert_counts = finbert_df['Sentiment'].value_counts().reindex(sentiment_order).fillna(0).reset_index()
+                                        finbert_counts.columns = ['Sentiment', 'Count']
+                                        
+                                        finbert_chart = alt.Chart(finbert_counts).mark_bar(color='lightblue').encode(
+                                            x=alt.X('Sentiment', sort=sentiment_order),
+                                            y='Count'
+                                        ).properties(height=300)
+                                        
+                                        st.markdown("**FinBERT Sentiment Distribution**")
+                                        st.altair_chart(finbert_chart, use_container_width=True)
+                                    
+                                    with col2:
+                                        # Create histogram for FinBERT scores
+                                        finbert_score_df = pd.DataFrame({'Score': finbert_scores})
+                                        
+                                        finbert_hist = alt.Chart(finbert_score_df).mark_bar(color='lightgreen').encode(
+                                            x=alt.X('Score:Q', bin=alt.Bin(maxbins=20), title='FinBERT Net Score'),
+                                            y='count()'
+                                        ).properties(height=300)
+                                        
+                                        st.markdown("**FinBERT Score Distribution**")
+                                        st.altair_chart(finbert_hist, use_container_width=True)
+                                
+                                if vader_sentiments:
+                                    # Create two columns for sentiment distribution and score histogram
+                                    col1, col2 = st.columns(2)
+                                    
+                                    with col1:
+                                        vader_df = pd.DataFrame({'Sentiment': vader_sentiments})
+                                        vader_counts = vader_df['Sentiment'].value_counts().reindex(sentiment_order).fillna(0).reset_index()
+                                        vader_counts.columns = ['Sentiment', 'Count']
+                                        
+                                        vader_chart = alt.Chart(vader_counts).mark_bar(color='lightblue').encode(
+                                            x=alt.X('Sentiment', sort=sentiment_order),
+                                            y='Count'
+                                        ).properties(height=300)
+                                        
+                                        st.markdown("**VADER Sentiment Distribution**")
+                                        st.altair_chart(vader_chart, use_container_width=True)
+                                    
+                                    with col2:
+                                        # Create histogram for VADER scores
+                                        vader_score_df = pd.DataFrame({'Score': vader_scores})
+                                        
+                                        vader_hist = alt.Chart(vader_score_df).mark_bar(color='lightgreen').encode(
+                                            x=alt.X('Score:Q', bin=alt.Bin(maxbins=20), title='VADER Compound Score'),
+                                            y='count()'
+                                        ).properties(height=300)
+                                        
+                                        st.markdown("**VADER Score Distribution**")
+                                        st.altair_chart(vader_hist, use_container_width=True)
                 else:
                     st.info("No matching documents found for your query.")
             except Exception as e:
@@ -198,7 +277,7 @@ with tab3:
 
     if two_stage_query:
         st.write("Processing your query using the two-stage process...")
-        answer,relevant_chunks = answer_stock_question(two_stage_query)
+        answer,relevant_chunks = answer_stock_question(data_path,two_stage_query)
         st.subheader("Answer:")
         st.write(answer)
         st.subheader("Relevant Chunks:")
