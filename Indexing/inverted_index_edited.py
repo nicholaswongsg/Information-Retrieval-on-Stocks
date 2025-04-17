@@ -121,9 +121,11 @@ def search_index(data_path, query, mode='and'):
     if files_exist:
         # Load existing data
         index, stopword_list, df = load_data()
+        result_documents = df
     else:
         # Build new index and save data
         df = pd.read_csv(data_path)
+        result_documents = df
         
         # Create a mapping between document texts and their original indices
         document_texts = []
@@ -145,6 +147,9 @@ def search_index(data_path, query, mode='and'):
         index = build_index(document_texts, document_ids, stopword_list)
         persist_data(index, stopword_list, df)
 
+    if not query or not query.strip():
+        return stopword_list, result_documents
+    
     # Query the index
     result_doc_ids = query_index(index, query, stopword_list, mode)
     
@@ -160,7 +165,7 @@ def search_index(data_path, query, mode='and'):
 
 def main():
     # Query index
-    sample_query = "Apple stocks"
+    sample_query = ""
     stopword_list, result_documents = search_index(data_path, sample_query)
     print(f"Found {len(result_documents)} matching documents")
     print("Stopwords:")

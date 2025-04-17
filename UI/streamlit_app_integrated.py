@@ -125,17 +125,18 @@ with tab2:
     # Add a search button
     search_button = st.button("Search",key="search1")
 
-    if custom_query and search_button:
+    if custom_query or search_button:
         with st.spinner("Searching documents..."):
             try:
                 # Start timing
                 start_time = datetime.now()
 
                 # Call the search_index function from inverted_index_edited.py
-                stopwords_list, searched_docs = search_index(data_path, custom_query)
+                stopwords_list, result_documents = search_index(data_path, custom_query)
 
                 #1. Filter by time
-                result_documents = searched_docs[(searched_docs['created_utc'] >= start_utc) & (searched_docs['created_utc'] <= end_utc)]
+                if not result_documents.empty:
+                    result_documents = result_documents[(result_documents['created_utc'] >= start_utc) & (result_documents['created_utc'] <= end_utc)]
 
                 # 2. Filter by selected subreddits if any are selected
                 if selected_subreddits:
@@ -143,6 +144,7 @@ with tab2:
                 else:
                     # If no subreddits are selected, keep all subreddits
                     pass
+                
                 end_time = datetime.now()
                 elapsed_time = end_time - start_time
                 elapsed_ms = elapsed_time.total_seconds() * 1000

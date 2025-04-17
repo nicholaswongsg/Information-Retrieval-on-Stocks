@@ -89,8 +89,8 @@ def search_solr(query, subreddits=None, start_date=None, end_date=None):
             search_type = "fulltext"
         
         # Execute search with error handling
-        results = solr.search(q, fq=fq, rows=100)
-        
+        results = solr.search(q, fq=fq, rows=2147483647)
+
         # Convert results to DataFrame
         data = []
         for result in results:
@@ -177,16 +177,19 @@ def render_solr_tab():
     # Search button
     search_button = st.button("Search", key="solr_search")
     
-    if query and search_button:
+    if query or search_button:
         with st.spinner("Searching..."):
             try:
                 start_time = datetime.now()
+                if not query or not query.strip():
+                    query = '*:*'
+
                 # Execute Solr search
                 results = search_solr(
                     query, 
                     subreddits=selected_subreddits, 
                     start_date=start_date, 
-                    end_date=end_date
+                    end_date=end_date,
                 )
                 
                 # Display results
