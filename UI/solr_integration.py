@@ -100,7 +100,8 @@ def search_solr(query, subreddits=None, start_date=None, end_date=None):
                 'primary_sentiment': result.get('primary_sentiment', ''),
                 'primary_score': result.get('primary_score', 0),
                 'created_utc': result.get('created_utc', 0),
-                'subreddit': result.get('subreddit', '')
+                'subreddit': result.get('subreddit', ''),
+                'human2_sentiment': result.get('human2_sentiment', ''),
             }
             
             # Add NER fields if available - handle potential list types
@@ -268,6 +269,13 @@ def render_solr_tab():
 
                     # Check if the required columns exist in the dataframe
                     if 'primary_sentiment' in result_documents.columns:
+                        df = pd.DataFrame(result_documents)
+                        for column in df.columns:
+                            # Check if the column contains lists
+                            if df[column].apply(lambda x: isinstance(x, list)).any():
+                                # Extract the single value from each list
+                                df[column] = df[column].apply(lambda x: x[0] if isinstance(x, list) and len(x) == 1 else x)
+                        result_documents = df
                         # Create visualization for primary sentiment
                         st.markdown("**Primary Sentiment Distribution**")
                         primary_counts = result_documents['primary_sentiment'].value_counts().reindex(sentiment_order).fillna(0).reset_index()
