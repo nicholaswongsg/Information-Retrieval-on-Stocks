@@ -131,6 +131,146 @@ def search_solr(query, subreddits=None, start_date=None, end_date=None):
         # Re-raise the exception to be caught by the caller
         raise
 
+def perform_boolean_search(query, start_time=None, end_time=None, subreddits=None):
+    """
+    Perform a Boolean search using Solr.
+    
+    Parameters:
+    - query (str): The Boolean query string (e.g., "Apple OR Samsung", "(Apple OR Samsung) AND earnings")
+    - start_time (int): UTC timestamp for filtering by start date
+    - end_time (int): UTC timestamp for filtering by end date
+    - subreddits (list): List of subreddits to filter by
+    
+    Returns:
+    - DataFrame: Results from Solr matching the Boolean query
+    """
+    try:
+        # Connect to Solr
+        solr = connect_to_solr()
+        
+        # Build filter queries
+        fq = []
+        if subreddits and len(subreddits) > 0:
+            subreddit_fq = " OR ".join([f'subreddit:"{subreddit}"' for subreddit in subreddits])
+            fq.append(f"({subreddit_fq})")
+        
+        if start_time and end_time:
+            fq.append(f"created_utc:[{start_time} TO {end_time}]")
+        
+        # Normalize boolean operators to uppercase
+        # This is the simplest approach for Solr to understand boolean operators
+        query = re.sub(r'\bOR\b|\bor\b', 'OR', query)
+        query = re.sub(r'\bAND\b|\band\b', 'AND', query)
+        query = re.sub(r'\bNOT\b|\bnot\b', 'NOT', query)
+        
+        # Debug information
+        st.write(f"Executing Boolean query: `{query}`")
+        
+        # Basic search approach - let Solr handle the boolean logic
+        try:
+            search_results = solr.search(query, fq=fq, df='text', rows=1000)
+            num_results = search_results.hits
+            st.write(f"Found {num_results} documents")
+        except Exception as e:
+            st.error(f"Search error: {str(e)}")
+            # Fall back to a very simple query
+            search_terms = query.replace('OR', ' ').replace('AND', ' ').replace('NOT', ' ').split()
+            if search_terms:
+                # Use the first term as a simple query
+                simple_term = search_terms[0].strip()
+                st.write(f"Falling back to simple search with term: {simple_term}")
+                search_results = solr.search(f"text:{simple_term}", fq=fq, rows=1000)
+            else:
+                # Empty query
+                st.write("No valid search terms found")
+                return pd.DataFrame()
+        
+        # Convert results to DataFrame safely
+        data = []
+        for doc in search_results:
+            item = {}
+            
+            # Process each field with proper type handling
+            for field in ['title', 'text', 'primary_sentiment', 'subreddit', 'human2_sentiment']:
+                if field in doc:
+                    value = doc.get(field, '')
+                    # Handle if the field is a list
+                    if isinstance(value, list) and value:
+                        item[field] = value[0]
+                    else:
+                        item[field] = value
+            
+            # Handle numeric fields safely
+            if 'primary_score' in doc:
+                score = doc.get('primary_score', 0)
+                if isinstance(score, list) and score:
+                    # Take the first item if it's a list
+                    item['primary_score'] = float(score[0])
+                else:
+                    # Convert to float safely
+                    try:
+                        item['primary_score'] = float(score)
+                    except (ValueError, TypeError):
+                        item['primary_score'] = 0.0
+            else:
+                item['primary_score'] = 0.0
+                
+            # Handle timestamp field safely
+            if 'created_utc' in doc:
+                timestamp = doc.get('created_utc', 0)
+                if isinstance(timestamp, list) and timestamp:
+                    # Take the first item if it's a list
+                    try:
+                        item['created_utc'] = int(timestamp[0])
+                        item['date'] = datetime.fromtimestamp(int(timestamp[0]))
+                    except (ValueError, TypeError):
+                        item['created_utc'] = 0
+                        item['date'] = datetime.fromtimestamp(0)
+                else:
+                    # Convert to integer safely
+                    try:
+                        item['created_utc'] = int(timestamp)
+                        item['date'] = datetime.fromtimestamp(int(timestamp))
+                    except (ValueError, TypeError):
+                        item['created_utc'] = 0
+                        item['date'] = datetime.fromtimestamp(0)
+            else:
+                item['created_utc'] = 0
+                item['date'] = datetime.fromtimestamp(0)
+            
+            # Add NER fields if available - handle potential list types safely
+            for ner_field in ['ner_text_cleaned', 'ner_recognized_tickers', 'ner_entity_sentiments']:
+                if ner_field in doc:
+                    value = doc.get(ner_field, '')
+                    if isinstance(value, list) and value:
+                        item[ner_field] = value[0]
+                    elif ner_field == 'ner_entity_sentiments' and not isinstance(value, str):
+                        # Ensure JSON serialization for dictionaries
+                        try:
+                            item[ner_field] = json.dumps(value)
+                        except:
+                            item[ner_field] = '{}'
+                    else:
+                        item[ner_field] = value
+                        
+            data.append(item)
+        
+        # Create DataFrame from the results
+        df = pd.DataFrame(data)
+        
+        # Clear debug information
+        st.empty()
+        
+        return df
+    
+    except Exception as e:
+        st.error(f"Error in Boolean search: {str(e)}")
+        # Print the full stack trace for debugging
+        import traceback
+        st.write(traceback.format_exc())
+        # Return empty DataFrame instead of raising
+        return pd.DataFrame()
+
 def render_solr_tab():
     """Render the Solr tab in Streamlit"""
     st.header("Enter a company name or stock topic")
