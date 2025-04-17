@@ -15,11 +15,14 @@ from datetime import datetime, timedelta
 
 # Import Solr integration module
 try:
-    from solr_integration import render_solr_tab
+    from solr_integration import render_solr_tab, perform_boolean_search
 except ImportError:
     # Local import when running in the same directory
     sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__))))
-    from solr_integration import render_solr_tab
+    from solr_integration import render_solr_tab, perform_boolean_search
+
+# Import spell checker module
+from spell_checker import suggest_correction
 
 # Add the parent directory to the Python path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -39,7 +42,7 @@ st.set_page_config(
 st.title("📈 Stock Sentiment Analysis")
 
 # === Tabs ===
-tab1, tab2, tab3, tab4 = st.tabs(["About", "Inverted Index", "Retrieval-Augmented Generation", "Solr Search"])
+tab1, tab2, tab3, tab4, tab5 = st.tabs(["About", "Inverted Index", "Retrieval-Augmented Generation", "Solr Search", "Boolean Search"])
 
 
 # === Tab 1: About ===
@@ -124,6 +127,11 @@ with tab2:
 
     # Add a search button
     search_button = st.button("Search",key="search1")
+
+    if custom_query:
+        suggestion = suggest_correction(custom_query, data_path)
+        if suggestion:
+            st.info(f"Did you mean: **{suggestion}**?")
 
     if custom_query or search_button:
         with st.spinner("Searching documents..."):
@@ -379,6 +387,11 @@ with tab3:
     # Add a search button
     search_button2 = st.button("Search",key="search2")
 
+    if custom_query:
+        suggestion = suggest_correction(custom_query, data_path)
+        if suggestion:
+            st.info(f"Did you mean: **{suggestion}**?")
+            
     if search_button2 and two_stage_query:
         start_time = datetime.now()
         st.write("Processing your query using the two-stage process...")
@@ -403,3 +416,152 @@ with tab4:
     except Exception as e:
         st.error(f"Error loading Solr integration: {str(e)}")
         st.info("Please make sure Solr is running and accessible. You can start it using Docker with the provided setup files.")
+
+# === Tab 5: Boolean Search ===
+with tab5:
+    st.header("Boolean Search")
+    st.markdown("""
+    Use Boolean operators (AND, OR, NOT) and parentheses to create complex queries.
+    
+    Examples:
+    - `Apple OR Samsung` (documents containing either Apple or Samsung)
+    - `Apple AND Samsung` (documents containing both Apple and Samsung)
+    - `Apple NOT Samsung` (documents containing Apple but not Samsung)
+    - `(Apple OR Samsung) AND earnings` (documents with either Apple or Samsung, and also containing earnings)
+    """)
+    
+    boolean_query = st.text_input("Enter your Boolean query", key="boolean_query")
+    
+    # Create filter section
+    with st.container():      
+        # Create two columns for filters
+        col1, col2 = st.columns(2)
+        
+        # Time filter in first column
+        with col1:
+            st.markdown("**Time Range**")
+            
+            # Define the min and max dates from your data
+            min_date_utc = 1608636755
+            max_date_utc = 1740806007 
+            
+            # Convert UTC timestamps to datetime for display
+            min_date = datetime.fromtimestamp(min_date_utc)
+            max_date = datetime.fromtimestamp(max_date_utc)
+            
+            # Create date input widgets in a row
+            date_col1, date_col2 = st.columns(2)
+            with date_col1:
+                start_date = st.date_input("Start Date", min_date, min_value=min_date, max_value=max_date, key="bool_start_date")
+            with date_col2:
+                end_date = st.date_input("End Date", max_date, min_value=min_date, max_value=max_date, key="bool_end_date")
+            
+            # Convert selected dates to UTC timestamps for filtering
+            start_datetime = datetime.combine(start_date, datetime.min.time())
+            end_datetime = datetime.combine(end_date, datetime.max.time())
+            
+            start_utc = int(start_datetime.timestamp())
+            end_utc = int(end_datetime.timestamp())
+        
+        # Subreddit filter in second column
+        with col2:
+            st.markdown("**Subreddit (Choose none for all subreddits)**")
+            
+            # List of available subreddits as specified
+            available_subreddits = ["applestocks", "microsoft", "NVDA_Stock", 
+                                    "wallstreetbets", "stockmarket", "stocks"]
+            
+            # Create multiselect widget for subreddits
+            selected_subreddits = st.multiselect(
+                "Select Subreddits",
+                options=available_subreddits,
+                default=[],  # Default selection
+                key="bool_subreddits"
+            )
+    
+    # Add a search button
+    boolean_search_button = st.button("Search", key="boolean_search")
+    
+    if boolean_search_button and boolean_query:
+        try:
+            with st.spinner("Executing Boolean search..."):
+                start_time = datetime.now()
+                
+                # Call the perform_boolean_search function from solr_integration.py
+                result_documents = perform_boolean_search(
+                    query=boolean_query, 
+                    start_time=start_utc, 
+                    end_time=end_utc,
+                    subreddits=selected_subreddits if selected_subreddits else None
+                )
+                
+                end_time = datetime.now()
+                elapsed_time = end_time - start_time
+                elapsed_ms = elapsed_time.total_seconds() * 1000
+                
+                # Display timing information
+                st.info(f"⏱️ Query processed in {elapsed_ms:.2f} ms ({elapsed_time.total_seconds():.2f} seconds)")
+                
+                if result_documents is not None and len(result_documents) > 0:
+                    st.write(f"🔍 Found {len(result_documents)} matching documents")
+                    st.dataframe(result_documents)
+                    
+                    # Word cloud from results, similar to Tab 2
+                    st.subheader("🌥 Word Cloud from Search Results")
+                    if 'text' in result_documents.columns:
+                        combined_text = " ".join(result_documents['text'].dropna().astype(str))
+                        combined_text = re.sub(r'https?://\S+|www\.\S+', '', combined_text)
+                        combined_text = re.sub(r'[^\w\s]', '', combined_text)
+                        combined_text = combined_text.lower()
+                        
+                        # Get stopwords from nltk if not already downloaded
+                        try:
+                            stop_words = set(stopwords.words('english'))
+                        except:
+                            nltk.download('stopwords')
+                            stop_words = set(stopwords.words('english'))
+                        
+                        # Create custom stopwords list (similar to what's passed from inverted index)
+                        custom_stopwords = []
+                        stop_words.update(custom_stopwords)
+                        
+                        words = [w for w in combined_text.split() if w not in stop_words and len(w) > 2]
+                        
+                        if words:
+                            word_freq = Counter(words)
+                            wordcloud = WordCloud(
+                                width=800, height=400, background_color='white',
+                                max_words=100, colormap='plasma'
+                            ).generate_from_frequencies(word_freq)
+                            
+                            fig, ax = plt.subplots(figsize=(10, 5))
+                            ax.imshow(wordcloud, interpolation='bilinear')
+                            ax.axis("off")
+                            st.pyplot(fig)
+                        else:
+                            st.info("Not enough content to generate a word cloud.")
+                    
+                    # Display sentiment distribution if available
+                    sentiment_order = [
+                        "strongly negative",
+                        "slightly negative",
+                        "neutral",
+                        "slightly positive",
+                        "strongly positive"
+                    ]
+                    
+                    if 'primary_sentiment' in result_documents.columns:
+                        st.subheader("📊 Sentiment Distribution")
+                        primary_counts = result_documents['primary_sentiment'].value_counts().reindex(sentiment_order).fillna(0).reset_index()
+                        primary_counts.columns = ['Sentiment', 'Count']
+                        
+                        primary_chart = alt.Chart(primary_counts).mark_bar(color='lightblue').encode(
+                            x=alt.X('Sentiment', sort=sentiment_order),
+                            y='Count'
+                        ).properties(height=300)
+                        
+                        st.altair_chart(primary_chart, use_container_width=True)
+                else:
+                    st.info("No matching documents found for your Boolean query.")
+        except Exception as e:
+            st.error(f"Error in Boolean search: {str(e)}")
