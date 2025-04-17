@@ -39,7 +39,7 @@ st.set_page_config(
 st.title("📈 Stock Sentiment Analysis")
 
 # === Tabs ===
-tab1, tab2, tab3, tab4 = st.tabs(["About", "Inverted Index", "Retrieval-Augmented Generation", "Solar Search"])
+tab1, tab2, tab3, tab4 = st.tabs(["About", "Inverted Index", "Retrieval-Augmented Generation", "Solr Search"])
 
 
 # === Tab 1: About ===
@@ -342,7 +342,7 @@ with tab2:
             except Exception as e:
                 st.error(f"Error searching documents: {str(e)}")
 
-# === Tab 3: RAG Sentiment Lookuk ===
+# === Tab 3: RAG Sentiment Lookup ===
 with tab3:
     st.header("Ask a Question")
     two_stage_query = st.text_input("Example: What is the sentiment of Tesla?", key="two_stage_query")
