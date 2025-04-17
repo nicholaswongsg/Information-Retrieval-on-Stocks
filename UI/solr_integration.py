@@ -197,6 +197,7 @@ def render_solr_tab():
                 st.info(f"⏱️ Query processed in {elapsed_ms:.2f} ms ({elapsed_time.total_seconds():.2f} seconds)")
                 entity_type = "entity" if 'ner_text_cleaned' in results.columns else "term"
                 st.write(f"🔍 Found {len(results)} matching documents with {entity_type} '{query}'")
+                result_documents = results
                 
                 if not results.empty:
                     # Show recognized tickers if available
@@ -254,10 +255,9 @@ def render_solr_tab():
                     else:
                         st.info(f"No text available for word cloud generation.")
                     
-                    # Sentiment visualization
-                    st.subheader("📊 Sentiment Distribution")
-                    
-                    # Sentiment order for consistent display
+                    # === Aggregated Overview with Ordered Categories ===
+                    st.subheader("📊 Aggregated Sentiment Overview")
+
                     sentiment_order = [
                         "strongly negative",
                         "slightly negative",
@@ -265,11 +265,12 @@ def render_solr_tab():
                         "slightly positive",
                         "strongly positive"
                     ]
-                    
-                    if 'primary_sentiment' in results.columns:
+
+                    # Check if the required columns exist in the dataframe
+                    if 'primary_sentiment' in result_documents.columns:
                         # Create visualization for primary sentiment
-                        st.markdown(f"**Sentiment Distribution for '{query}'**")
-                        primary_counts = results['primary_sentiment'].value_counts().reindex(sentiment_order).fillna(0).reset_index()
+                        st.markdown("**Primary Sentiment Distribution**")
+                        primary_counts = result_documents['primary_sentiment'].value_counts().reindex(sentiment_order).fillna(0).reset_index()
                         primary_counts.columns = ['Sentiment', 'Count']
                         
                         primary_chart = alt.Chart(primary_counts).mark_bar(color='lightblue').encode(
@@ -278,6 +279,155 @@ def render_solr_tab():
                         ).properties(height=300)
                         
                         st.altair_chart(primary_chart, use_container_width=True)
+                        
+                        # Score distribution as well
+                        if 'primary_score' in result_documents.columns:
+                            st.markdown("**Sentiment Score Distribution**")
+                            
+                            # Create a histogram of sentiment scores
+                            score_hist = alt.Chart(result_documents).mark_bar().encode(
+                                x=alt.X('primary_score:Q', bin=alt.Bin(maxbins=20), title='Sentiment Score'),
+                                y='count()'
+                            ).properties(height=300)
+                            
+                            st.altair_chart(score_hist, use_container_width=True)
+                        
+                        # Add a time-based analysis
+                        if 'created_utc' in result_documents.columns:
+                            st.subheader("📅 Sentiment Over Time")
+                            try:
+                                # Convert timestamp to datetime if it's not already
+                                if not pd.api.types.is_datetime64_any_dtype(result_documents['created_utc']):
+                                    result_documents['date'] = pd.to_datetime(result_documents['created_utc'], unit='s')
+                                
+                                # Group by date and sentiment
+                                time_data = result_documents.groupby([pd.Grouper(key='date', freq='D'), 'primary_sentiment']).size().reset_index(name='count')
+                                
+                                # Create time series chart
+                                time_chart = alt.Chart(time_data).mark_line().encode(
+                                    x='date:T',
+                                    y='count:Q',
+                                    color='primary_sentiment:N',
+                                    tooltip=['date', 'primary_sentiment', 'count']
+                                ).properties(
+                                    width=700,
+                                    height=400
+                                )
+                                
+                                st.altair_chart(time_chart, use_container_width=True)
+                            except Exception as e:
+                                st.warning(f"Could not create time series chart: {str(e)}")
+                            
+                            # Parse the JSON in ner_entity_sentiments to extract FinBERT and VADER sentiments
+                            if 'ner_entity_sentiments' in result_documents.columns:
+                                st.subheader("**Model Specific Sentiment Analysis**")
+                                
+                                finbert_sentiments = []
+                                vader_sentiments = []
+                                finbert_scores = []
+                                vader_scores = []
+
+                                for json_str in result_documents['ner_entity_sentiments']:
+                                    try:
+                                        import json
+                                        data = json.loads(json_str.replace("'", '"'))
+                                        
+                                        # Extract first ticker's sentiment (simplified)
+                                        for ticker, analyses in data.items():
+                                            if 'finbert' in analyses:
+                                                finbert_sentiments.append(analyses['finbert']['label'].lower())
+                                                finbert_scores.append(analyses['finbert']['net_score'])
+                                            if 'vader' in analyses:
+                                                vader_sentiments.append(analyses['vader']['label'].lower())
+                                                vader_scores.append(analyses['vader']['compound'])  # VADER uses 'compound' instead of 'net_score'
+                                            break  # Just take the first ticker for simplicity
+                                    except:
+                                        continue
+
+                                chatgpt_sentiments=[]
+                                for json_str in result_documents['human2_sentiment']:
+                                    try:
+                                        import json
+                                        data = json.loads(json_str.replace("'", '"'))
+
+                                        # Extract first ticker's sentiment (simplified)
+                                        for ticker, analyses in data.items():
+                                            if 'human2' in analyses:
+                                                chatgpt_sentiments.append(analyses['human2']['label'].lower())
+                                            break  # Just take the first ticker for simplicity
+                                    except:
+                                        continue
+                                
+                                # Create DataFrames for visualization
+                                if finbert_sentiments:
+                                    # Create two columns for sentiment distribution and score histogram
+                                    col1, col2 = st.columns(2)
+                                    
+                                    with col1:
+                                        finbert_df = pd.DataFrame({'Sentiment': finbert_sentiments})
+                                        finbert_counts = finbert_df['Sentiment'].value_counts().reindex(sentiment_order).fillna(0).reset_index()
+                                        finbert_counts.columns = ['Sentiment', 'Count']
+                                        
+                                        finbert_chart = alt.Chart(finbert_counts).mark_bar(color='lightblue').encode(
+                                            x=alt.X('Sentiment', sort=sentiment_order),
+                                            y='Count'
+                                        ).properties(height=300)
+                                        
+                                        st.markdown("**FinBERT Sentiment Distribution**")
+                                        st.altair_chart(finbert_chart, use_container_width=True)
+                                    
+                                    with col2:
+                                        # Create histogram for FinBERT scores
+                                        finbert_score_df = pd.DataFrame({'Score': finbert_scores})
+                                        
+                                        finbert_hist = alt.Chart(finbert_score_df).mark_bar(color='lightgreen').encode(
+                                            x=alt.X('Score:Q', bin=alt.Bin(maxbins=20), title='FinBERT Net Score'),
+                                            y='count()'
+                                        ).properties(height=300)
+                                        
+                                        st.markdown("**FinBERT Score Distribution**")
+                                        st.altair_chart(finbert_hist, use_container_width=True)
+                                
+                                if vader_sentiments:
+                                    # Create two columns for sentiment distribution and score histogram
+                                    col1, col2 = st.columns(2)
+                                    
+                                    with col1:
+                                        vader_df = pd.DataFrame({'Sentiment': vader_sentiments})
+                                        vader_counts = vader_df['Sentiment'].value_counts().reindex(sentiment_order).fillna(0).reset_index()
+                                        vader_counts.columns = ['Sentiment', 'Count']
+                                        
+                                        vader_chart = alt.Chart(vader_counts).mark_bar(color='lightblue').encode(
+                                            x=alt.X('Sentiment', sort=sentiment_order),
+                                            y='Count'
+                                        ).properties(height=300)
+                                        
+                                        st.markdown("**VADER Sentiment Distribution**")
+                                        st.altair_chart(vader_chart, use_container_width=True)
+                                    
+                                    with col2:
+                                        # Create histogram for VADER scores
+                                        vader_score_df = pd.DataFrame({'Score': vader_scores})
+                                        
+                                        vader_hist = alt.Chart(vader_score_df).mark_bar(color='lightgreen').encode(
+                                            x=alt.X('Score:Q', bin=alt.Bin(maxbins=20), title='VADER Compound Score'),
+                                            y='count()'
+                                        ).properties(height=300)
+                                        
+                                        st.markdown("**VADER Score Distribution**")
+                                        st.altair_chart(vader_hist, use_container_width=True)
+                                if chatgpt_sentiments:
+                                    chatgpt_df = pd.DataFrame({'Sentiment': chatgpt_sentiments})
+                                    chatgpt_counts = chatgpt_df['Sentiment'].value_counts().reindex(sentiment_order).fillna(0).reset_index()
+                                    chatgpt_counts.columns = ['Sentiment', 'Count']
+                                    
+                                    chatgpt_chart = alt.Chart(chatgpt_counts).mark_bar(color='lightblue').encode(
+                                        x=alt.X('Sentiment', sort=sentiment_order),
+                                        y='Count'
+                                    ).properties(height=300)
+                                    
+                                    st.markdown("**ChatGPT Sentiment Distribution**")
+                                    st.altair_chart(chatgpt_chart, use_container_width=True)
                 else:
                     st.info(f"No matches found for '{query}'. Try a different term or company name.")
             except Exception as e:
