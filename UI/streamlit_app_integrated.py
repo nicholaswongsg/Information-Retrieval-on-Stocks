@@ -261,7 +261,7 @@ with tab2:
                                 vader_sentiments = []
                                 finbert_scores = []
                                 vader_scores = []
-                                
+
                                 for json_str in result_documents['ner_entity_sentiments']:
                                     try:
                                         import json
@@ -275,6 +275,20 @@ with tab2:
                                             if 'vader' in analyses:
                                                 vader_sentiments.append(analyses['vader']['label'].lower())
                                                 vader_scores.append(analyses['vader']['compound'])  # VADER uses 'compound' instead of 'net_score'
+                                            break  # Just take the first ticker for simplicity
+                                    except:
+                                        continue
+
+                                chatgpt_sentiments=[]
+                                for json_str in result_documents['human2_sentiment']:
+                                    try:
+                                        import json
+                                        data = json.loads(json_str.replace("'", '"'))
+
+                                        # Extract first ticker's sentiment (simplified)
+                                        for ticker, analyses in data.items():
+                                            if 'human2' in analyses:
+                                                chatgpt_sentiments.append(analyses['human2']['label'].lower())
                                             break  # Just take the first ticker for simplicity
                                     except:
                                         continue
@@ -337,6 +351,19 @@ with tab2:
                                         
                                         st.markdown("**VADER Score Distribution**")
                                         st.altair_chart(vader_hist, use_container_width=True)
+                                if chatgpt_sentiments:
+                                    chatgpt_df = pd.DataFrame({'Sentiment': chatgpt_sentiments})
+                                    chatgpt_counts = chatgpt_df['Sentiment'].value_counts().reindex(sentiment_order).fillna(0).reset_index()
+                                    chatgpt_counts.columns = ['Sentiment', 'Count']
+                                    
+                                    chatgpt_chart = alt.Chart(chatgpt_counts).mark_bar(color='lightblue').encode(
+                                        x=alt.X('Sentiment', sort=sentiment_order),
+                                        y='Count'
+                                    ).properties(height=300)
+                                    
+                                    st.markdown("**ChatGPT Sentiment Distribution**")
+                                    st.altair_chart(chatgpt_chart, use_container_width=True)
+                                    
                 else:
                     st.info("No matching documents found for your query.")
             except Exception as e:
