@@ -12,6 +12,12 @@ import json
 from datetime import datetime
 import os
 
+# Import spell checker module
+from spell_checker import suggest_correction
+
+# Define the data path correctly
+data_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "Classification", "NER_with_sentiment.csv"))
+
 def connect_to_solr(core_name="stock_sentiment"):
     """Connect to Solr core with fallbacks for different environments"""
     # Try different URLs in sequence
@@ -116,7 +122,6 @@ def search_solr(query, subreddits=None, start_date=None, end_date=None):
             if 'ner_entity_sentiments' in result:
                 sentiments = result.get('ner_entity_sentiments', '{}')
                 doc['ner_entity_sentiments'] = sentiments if isinstance(sentiments, str) else json.dumps(sentiments)
-                
             data.append(doc)
         
         return pd.DataFrame(data)
@@ -177,6 +182,12 @@ def render_solr_tab():
     # Search button
     search_button = st.button("Search", key="solr_search")
     
+    if query:
+        suggestion = suggest_correction(query, data_path)
+        if suggestion:
+            st.info(f"Did you mean: **{suggestion}**?")
+
+
     if query or search_button:
         with st.spinner("Searching..."):
             try:
@@ -211,7 +222,13 @@ def render_solr_tab():
                             st.subheader("📊 Recognized Stock Tickers")
                             ticker_html = " ".join([f"<span style='background-color: #e6f2ff; padding: 5px; margin: 5px; border-radius: 5px;'>{ticker}</span>" for ticker in tickers])
                             st.markdown(f"Tickers mentioned in results: {ticker_html}", unsafe_allow_html=True)
-                    
+                    df = result_documents
+                    for column in df.columns:
+                        # Check if the column contains lists
+                        if df[column].apply(lambda x: isinstance(x, list)).any():
+                            # Extract the single value from each list
+                            df[column] = df[column].apply(lambda x: x[0] if isinstance(x, list) and len(x) == 1 else x)
+                    result_documents = df
                     # Display results dataframe
                     st.dataframe(results)
                     
@@ -272,13 +289,6 @@ def render_solr_tab():
 
                     # Check if the required columns exist in the dataframe
                     if 'primary_sentiment' in result_documents.columns:
-                        df = pd.DataFrame(result_documents)
-                        for column in df.columns:
-                            # Check if the column contains lists
-                            if df[column].apply(lambda x: isinstance(x, list)).any():
-                                # Extract the single value from each list
-                                df[column] = df[column].apply(lambda x: x[0] if isinstance(x, list) and len(x) == 1 else x)
-                        result_documents = df
                         # Create visualization for primary sentiment
                         st.markdown("**Primary Sentiment Distribution**")
                         primary_counts = result_documents['primary_sentiment'].value_counts().reindex(sentiment_order).fillna(0).reset_index()

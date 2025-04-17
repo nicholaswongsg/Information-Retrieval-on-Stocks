@@ -21,6 +21,9 @@ except ImportError:
     sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__))))
     from solr_integration import render_solr_tab
 
+# Import spell checker module
+from spell_checker import suggest_correction
+
 # Add the parent directory to the Python path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from Indexing.inverted_index_edited import search_index
@@ -124,6 +127,11 @@ with tab2:
 
     # Add a search button
     search_button = st.button("Search",key="search1")
+
+    if custom_query:
+        suggestion = suggest_correction(custom_query, data_path)
+        if suggestion:
+            st.info(f"Did you mean: **{suggestion}**?")
 
     if custom_query or search_button:
         with st.spinner("Searching documents..."):
@@ -379,6 +387,11 @@ with tab3:
     # Add a search button
     search_button2 = st.button("Search",key="search2")
 
+    if custom_query:
+        suggestion = suggest_correction(custom_query, data_path)
+        if suggestion:
+            st.info(f"Did you mean: **{suggestion}**?")
+            
     if search_button2 and two_stage_query:
         start_time = datetime.now()
         st.write("Processing your query using the two-stage process...")
