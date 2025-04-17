@@ -11,6 +11,7 @@ import nltk
 import json
 from datetime import datetime
 import os
+import ast
 
 # Import spell checker module
 from spell_checker import suggest_correction
@@ -124,7 +125,50 @@ def search_solr(query, subreddits=None, start_date=None, end_date=None):
                 doc['ner_entity_sentiments'] = sentiments if isinstance(sentiments, str) else json.dumps(sentiments)
             data.append(doc)
         
-        return pd.DataFrame(data)
+        result_documents = pd.DataFrame(data)
+
+        # Clean the 'ner_entity_sentiments' column
+        if 'ner_entity_sentiments' in result_documents.columns:
+            result_documents['ner_entity_sentiments'] = result_documents['ner_entity_sentiments'].str.replace('\\', '', regex=False)
+
+        # Process list-type values
+        df = result_documents
+        for column in df.columns:
+            # Check if the column contains lists
+            if df[column].apply(lambda x: isinstance(x, list)).any():
+                # Extract the single value from each list
+                df[column] = df[column].apply(lambda x: x[0] if isinstance(x, list) else x)
+            else:
+                print(column)
+        result_documents = df
+
+        # Process each column if it exists in the dataframe
+        for col in ['ner_text_cleaned', 'ner_recognized_tickers', 'ner_entity_sentiments']:
+            if col in result_documents.columns:
+                # Define a function to clean string representations of lists
+                def clean_brackets(val):
+                    # Skip None values
+                    if val is None:
+                        return val
+                        
+                    # If value is a string representation of a list with a single item
+                    if isinstance(val, str) and val.startswith("[") and val.endswith("]"):
+                        try:
+                            # Safely parse the string as a Python literal
+                            parsed = ast.literal_eval(val)
+                            # If it's a list with a single item, return just that item
+                            if isinstance(parsed, list) and len(parsed) == 1:
+                                return parsed[0]  # Return the item without brackets
+                            return parsed  # Return the parsed list as is
+                        except (ValueError, SyntaxError):
+                            # If parsing fails, return the original value
+                            return val
+                    return val
+                    
+                # Apply the cleaning function to the column
+                result_documents[col] = result_documents[col].apply(clean_brackets)
+
+        return result_documents
     
     except Exception as e:
         st.error(f"Error searching Solr: {str(e)}")
@@ -274,7 +318,6 @@ def perform_boolean_search(query, start_time=None, end_time=None, subreddits=Non
 def render_solr_tab():
     """Render the Solr tab in Streamlit"""
     st.header("Enter a company name or stock topic")
-
     
     # Create filter section at the top
     with st.container():      
@@ -490,10 +533,14 @@ def render_solr_tab():
 
                                 for json_str in result_documents['ner_entity_sentiments']:
                                     try:
-                                        import json
-                                        data = json.loads(json_str.replace("'", '"'))
+                                        # First, strip the outer array brackets if they exist
+                                        if json_str.startswith('[') and json_str.endswith(']'):
+                                            json_str = json_str[2:-2]
                                         
-                                        # Extract first ticker's sentiment (simplified)
+                                        # Parse the JSON string
+                                        data = json.loads(json_str)
+                                        
+                                        # Process each ticker in the data
                                         for ticker, analyses in data.items():
                                             if 'finbert' in analyses:
                                                 finbert_sentiments.append(analyses['finbert']['label'].lower())
@@ -501,14 +548,13 @@ def render_solr_tab():
                                             if 'vader' in analyses:
                                                 vader_sentiments.append(analyses['vader']['label'].lower())
                                                 vader_scores.append(analyses['vader']['compound'])  # VADER uses 'compound' instead of 'net_score'
-                                            break  # Just take the first ticker for simplicity
-                                    except:
+                                    except Exception as e:
+                                        print(f"Error processing JSON: {e}")
                                         continue
 
                                 chatgpt_sentiments=[]
                                 for json_str in result_documents['human2_sentiment']:
                                     try:
-                                        import json
                                         data = json.loads(json_str.replace("'", '"'))
 
                                         # Extract first ticker's sentiment (simplified)
