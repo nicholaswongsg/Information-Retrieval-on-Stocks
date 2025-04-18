@@ -52,21 +52,28 @@ with tab1:
     st.markdown("""
     ### Stock Sentiment Analysis Tool
     
-    This application uses an inverted index to search through stock-related text data and analyze sentiment.
-    
+    This comprehensive application enables users to analyze stock market sentiment through various search methodologies and visualization techniques.
+
     #### Features:
-    - Search for stock-related information using natural language queries
-    - View sentiment analysis from multiple models (FinBERT and VADER)
-    - Visualize word frequencies and sentiment distributions
-    - Analyze sentiment trends over time
-    
+    - Multiple search options: Inverted Index, RAG, Solr, and Boolean queries
+    - Multi-model sentiment analysis (FinBERT, VADER, and ChatGPT)
+    - Interactive visualizations including word clouds, sentiment distributions and time-based sentiment trend analysis
+    - Filtering capabilities according to subreddit or date
+    - Spelling correction for stock terminology and company names
+                
+    #### Search Options:
+    - **Inverted Index**: Fast keyword-based document retrieval
+    - **Retrieval-Augmented Generation**: Leverage natural language to ask questions about stocks
+    - **Solr Search**: Powerful text search with advanced filtering
+    - **Boolean Search**: More targeted queries using binary (AND, OR, NOT) operators
+
     #### How It Works:
-    1. Enter a query about stocks or companies
-    2. The system searches through the documents
-    3. Matching documents are retrieved and analyzed
-    4. Results are displayed with various visualizations
-    
-    #### Data Sources (Reddit):
+    1. Select the appropriate search tab for your query needs
+    2. Filter by date range and specific subreddits if desired
+    3. Enter your search query about stocks or companies
+    4. View comprehensive results with sentiment breakdowns and visualizations
+
+    #### Data Sources:
     - r/applestocks: https://www.reddit.com/r/applestocks
     - r/microsoft: https://www.reddit.com/r/microsoft
     - r/NVDA_Stock: https://www.reddit.com/r/NVDA_Stock
