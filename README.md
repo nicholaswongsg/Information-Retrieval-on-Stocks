@@ -19,21 +19,42 @@ Install the required Python packages using:
 pip install -r requirements.txt
 ```
 
-### 3. Start Solr using Docker Compose
-Run the following command to start Solr in a Docker container:
+### 3. Configure .env file
+- Add ```AZURE_OPENAI_ENDPOINT```
+- Add ```AZURE_OPENAI_API_KEY```
+
+### 4. Start Solr using Docker Compose
+1. Start docker
+2. cd UI
+3. run  
+```sh 
+./run.sh
+```
+4. Run the following command to start Solr in a Docker container:
 ```sh
 docker-compose up -d
 ```
-This will pull and start the Solr image defined in `docker-compose.yml`.
 
 ### 4. Ensure Dataset Files are Present
 Make sure the following dataset files are inside the project directory before proceeding:
 ```sh
-ls -l reddit_stock_posts.csv reddit_stock_comments.csv
+ls -l Classification/NER_with_ensemble_sentiment.csv
+ls -l Classification/NER_with_ensemble_sentiment_SMALL.csv
 ```
 
 ### 5. Convert Data and Load into Solr
 Run the conversion script to process the data and load it into Solr:
+```sh 
+python import_csv_to_solr.py
+```
+
+### 6. Build index
+Run 
 ```sh
-python convert.py
+python Indexing/inverted_index_edited.py
+```
+
+### 7. Run Application
+```sh
+streamlit run UI/streamlit_app_integrated.py
 ```
