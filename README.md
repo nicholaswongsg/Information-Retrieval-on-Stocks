@@ -20,8 +20,7 @@ pip install -r requirements.txt
 ```
 
 ### 3. Configure .env file
-- Add ```AZURE_OPENAI_ENDPOINT```
-- Add ```AZURE_OPENAI_API_KEY```
+- Follow format in .env.example file
 
 ### 4. Start Solr using Docker Compose
 1. Start docker
